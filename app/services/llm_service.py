@@ -14,6 +14,8 @@ class LLMService:
             openai_api_key=Config.OPENAI_API_KEY,
             temperature=0.7
         )
+        self.retriever = vector_store.as_retriever(search_kwargs={"k": 3})  
+        
         self.session_store = {}
         # Setup History-Aware Retriever 
         # This rewrites the user's question into a standalone query using history
@@ -55,11 +57,9 @@ class LLMService:
         self.question_answer_chain = create_stuff_documents_chain(self.llm, self.qa_prompt)
 
         # Combine them into the Final Retrieval Chain
-        # This matches the core functionality of the old ConversationalRetrievalChain
         self.rag_chain = create_retrieval_chain(self.history_aware_retriever, self.question_answer_chain)
 
-        #  Wrap your existing RAG chain with RunnableWithMessageHistory
-        # (Assuming 'rag_chain' is the LCEL chain created in the previous step)
+        #  Wrap an existing RAG chain with RunnableWithMessageHistory
         self.conversational_rag_chain = RunnableWithMessageHistory(
             self.rag_chain,
             self.get_session_history,
