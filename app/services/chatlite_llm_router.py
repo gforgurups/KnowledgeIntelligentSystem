@@ -5,15 +5,34 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.runnables import RunnableWithMessageHistory
+from litellm import Router
+from langchain_litellm import ChatLiteLLMRouter
+from litellm.caching.caching import Cache
 from config import Config
 
 class LLMService:
     def __init__(self,vector_store):
-        self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            openai_api_key=Config.OPENAI_API_KEY,
-            temperature=0.7
+        
+        self.litellm.cache = Cache(type="local")
+        self.llm_router = Router(
+                model_list=Config.MODEL_LIST,
+                routing_strategy="least-busy", 
+                num_retries=3,          # Automatic fallback retries occur BEFORE final on_failure triggers
+                cooldown_time=30,       # Temporarily bypass a model deployment for 30s if it throws a 429
+                #redis_host=REDIS_HOST,
+                #redis_port=REDIS_PORT,
+                cache_responses=True  # Response and Prompt caching
+                
+            )
+
+        # =====================================================================
+        # WRAP IN LANGCHAIN VIA CHATLITELLMROUTER
+        # =====================================================================
+        self.llm = ChatLiteLLMRouter(
+            router=self.llm_router,
+            model="resilient-llm-pool"
         )
+
         self.session_store = {}
         # Setup History-Aware Retriever 
         # This rewrites the user's question into a standalone query using history
@@ -55,11 +74,9 @@ class LLMService:
         self.question_answer_chain = create_stuff_documents_chain(self.llm, self.qa_prompt)
 
         # Combine them into the Final Retrieval Chain
-        # This matches the core functionality of the old ConversationalRetrievalChain
         self.rag_chain = create_retrieval_chain(self.history_aware_retriever, self.question_answer_chain)
 
-        #  Wrap your existing RAG chain with RunnableWithMessageHistory
-        # (Assuming 'rag_chain' is the LCEL chain created in the previous step)
+        #  Wrap an existing RAG chain with RunnableWithMessageHistory
         self.conversational_rag_chain = RunnableWithMessageHistory(
             self.rag_chain,
             self.get_session_history,
