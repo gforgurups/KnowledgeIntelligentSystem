@@ -1,3 +1,8 @@
+
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 from models.vector_store import VectorStore
 #from services.llm_service import LLMService
 from services.chatlite_llm_router import LLMService
