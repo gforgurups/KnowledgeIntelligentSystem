@@ -16,3 +16,5 @@ litellm
 langchain-litellm
 pysqlite3-binary
 langchain-classic
+langchain-community
+langchain-core
