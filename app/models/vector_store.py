@@ -1,20 +1,19 @@
-import chromadb
-from langchain.vectorstores import Chroma
-from langchain.embeddings import OpenAIEmbeddings
-
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 
 class VectorStore:
-    def __init__(self, persist_directory: str = "db"):
-        self.persist_directory = persist_directory
+    def __init__(self, path):
         self.embeddings = OpenAIEmbeddings()
-
-        self.vectorstore = Chroma(
-            persist_directory=self.persist_directory,
-            embedding_function=self.embeddings
+        self.vectore_store = Chroma(
+            persist_directory = path,
+            embedding_function = self.embeddings
         )
+        self.path = path
 
+    
     def add_documents(self, documents):
-        self.vectorstore.add_documents(documents)
+        self.vectore_store.add_documents(documents)
+    
 
-    def similarity_search(self, query: str, k: int = 3):
-        return self.vectorstore.similarity_search(query, k=k)
+    def similarity_search(self, query, k=4):
+        return self.vectore_store.similarity_search(query, k=k)

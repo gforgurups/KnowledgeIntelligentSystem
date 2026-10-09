@@ -1,19 +1,27 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.vectorstores import Chroma
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.chains.combine_documents import create_stuff_documents_chain
+
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.runnables import RunnableWithMessageHistory
 from litellm import Router
 from langchain_litellm import ChatLiteLLMRouter
 from litellm.caching.caching import Cache
 from config import Config
+import litellm
+from services.middleware import SecurityMiddleware
 
 class LLMService:
     def __init__(self,vector_store):
+
+        self.security_middleware = SecurityMiddleware
+        litellm.cache = Cache(type="local")
+        #Register middleware functions sequentially into LiteLLM's pre-call execution hook.
+        #Each hook receives 'kwargs', performs validation or mutation, and passes it forward.
+        litellm.input_callback =[self.security_middleware.pii_input_guardrail,
+                                 self.security_middleware.injection_guardrail,
+                                 self.security_middleware.forbidden_topic_guardrail]
         
-        self.litellm.cache = Cache(type="local")
         self.llm_router = Router(
                 model_list=Config.MODEL_LIST,
                 routing_strategy="least-busy", 
