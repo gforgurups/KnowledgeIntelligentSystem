@@ -7,7 +7,7 @@ COPY requirements.txt .
 
 # 2. Install dependencies (explicitly adding pysqlite3-binary as a safety net)
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir pysqlite3-binary
+    pip install --no-cache-dir pysqlite3-binary langchain-classic
 
 # 3. Copy the rest of the application code
 COPY . .
