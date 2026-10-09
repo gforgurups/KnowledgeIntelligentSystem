@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 COPY . .
 
 # 4. FIX: Run main.py directly from the current working directory (/app)
-CMD ["python3", "main.py"]
+CMD ["python3", "app/main.py"]
