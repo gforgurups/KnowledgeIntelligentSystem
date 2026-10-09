@@ -8,6 +8,7 @@ class Config:
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
     AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
     VECTOR_DB_PATH = "vector_db"
+    TEST_KEY=""
 
     # =====================================================================
     # DEFINE THE ROUTING POOL (DEPLOYMENT ARCHITECTURE)
