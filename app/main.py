@@ -13,6 +13,9 @@ import logging
 import os
 from services.document_loader import DocumentProcessor
 from flask import Flask, app, request, jsonify, render_template
+from utilities.pydantic_models import UserContext, LLMInteraction, LLMResponseContext,TextEvent
+from utilities.rag_logging import log
+from utilities.query_validation_transormation import process_query
 
 app = Flask(__name__)
 
@@ -21,8 +24,8 @@ llm_service = LLMService(vector_store=vector_store.vectore_store)
 storage_service = S3StorageService()   
 
 #Configre logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+#logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+#logger = logging.getLogger(__name__)
 
 def process_documents(file):
     """Load, process, and store documents in the vector store."""
@@ -34,6 +37,7 @@ def process_documents(file):
 
         document_processor = DocumentProcessor()
         chunks = document_processor.ingest_documents([temp_file_path])
+        log("Document process successfull")
         return chunks
     finally:
         # Clean up the temporary file
@@ -48,47 +52,47 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_document():
     try:
-        logger.debug("Upload endpoint called")
+        log("Upload endpoint called","debug")
         
         if 'file' not in request.files:
-            logger.warning("No file in request")
+            log("No file in request","warning")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
         if file.filename == '':
-            logger.warning("Empty filename")
+            log("Empty filename","warning")
             return jsonify({'error': 'No file selected'}), 400
 
         # Check file extension
         if not file.filename.endswith(('.txt', '.pdf')):
-            logger.warning(f"Unsupported file type: {file.filename}")
+            log(f"Unsupported file type: {file.filename}","warning")
             return jsonify({'error': 'Only .txt and .pdf files are supported'}), 400
 
-        logger.debug(f"Processing file: {file.filename}")
+        log(f"Processing file: {file.filename}","debug")
         
         # Process the document
         try:
             text_chunks = process_documents(file)
-            logger.debug(f"Document processed into {len(text_chunks)} chunks")
+            log(f"Document processed into {len(text_chunks)} chunks","debug")
         except Exception as e:
-            logger.error(f"Error processing document: {str(e)}")
+            log(f"Error processing document: {str(e)}","error")
             return jsonify({'error': f'Error processing document: {str(e)}'}), 500
 
         # Upload to S3
         try:
             file.seek(0)  # Reset file pointer
             storage_service.upload_file(file, file.filename)
-            logger.debug("File uploaded to S3")
+            log("File uploaded to S3","debug")
         except Exception as e:
-            logger.error(f"Error uploading to S3: {str(e)}")
+            log(f"Error uploading to S3: {str(e)}","error")
             return jsonify({'error': f'Error uploading to S3: {str(e)}'}), 500
 
         # Add to vector store
         try:
             vector_store.add_documents(text_chunks)
-            logger.debug("Documents added to vector store")
+            log("Documents added to vector store","debug")
         except Exception as e:
-            logger.error(f"Error adding to vector store: {str(e)}")
+            log(f"Error adding to vector store: {str(e)}","error")
             return jsonify({'error': f'Error adding to vector store: {str(e)}'}), 500
 
         return jsonify({
@@ -97,7 +101,7 @@ def upload_document():
         })
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        log(f"Unexpected error: {str(e)}","error")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
@@ -109,9 +113,22 @@ def query():
 
     try:
         session_id = "123"#data.get('session_id', 'default_session')
-        response = llm_service.generate_response(data['question'], session_id=session_id)
+        #clean and normalize the query
+        query= process_query(data['question'])
+        response = llm_service.generate_response(query["transformed"], session_id=session_id)
+        #log query & response details
+        usercontext = UserContext(user_id="test123",username="guru")
+        llmresponsecontext =  LLMResponseContext(content=response)
+        logcontext = LLMInteraction(
+            interaction_id=session_id,
+            user=usercontext,
+            raw_query=query["transformed"],
+            llm_response=llmresponsecontext
+        )
+        log(model=logcontext)
         return jsonify({'response': response})
     except Exception as e:
+        log(f"Unexpected error: {str(e)}","error")
         return jsonify({'error': str(e)}), 500
 
 

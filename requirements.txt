@@ -18,3 +18,7 @@ pysqlite3-binary
 langchain-classic
 langchain-community
 langchain-core
+pydantic
+watchtower
+mem0ai
+"mem0ai[nlp]"
